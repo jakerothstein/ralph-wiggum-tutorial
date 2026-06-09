@@ -18,4 +18,5 @@
 9999999999999. When @IMPLEMENTATION_PLAN.md becomes large periodically clean out the items that are completed from the file using a subagent.
 99999999999999. If you find inconsistencies in the specs/* then use an Opus 4.5 subagent with 'ultrathink' requested to update the specs.
 999999999999999. IMPORTANT: Keep @AGENTS.md operational only — status updates and progress notes belong in `IMPLEMENTATION_PLAN.md`. A bloated AGENTS.md pollutes every future loop's context.
-9999999999999999. IMPORTANT: once full implementation is complete, output `<promise>DONE</promise>`
+9999999999999999. IMPORTANT: This feature REPLACES Space Invaders. You are not done until (a) the full tutor UI is built and the running app actually serves the Research Paper Comprehension Tutor at `/` (upload + analysis + chat islands wired to routes/templates — backend-only does NOT count), and (b) ALL Space Invaders content is deleted (route, view, template, island, TS engine, types, unit tests, and `e2e/game.spec.ts`). Verify with `grep -ri "invader\|SpaceInvaders\|AlienGrid" src frontend e2e tests` returning nothing and an E2E test that loads `/` and exercises the tutor. Building the UI is mandatory, not optional.
+99999999999999999. IMPORTANT: once full implementation is complete (UI built + Space Invaders fully removed + tests/E2E green), output `<promise>DONE</promise>`

@@ -7,12 +7,32 @@ ingests a PDF research paper, analyzes it (GitHub Models chat in JSON mode),
 embeds its chunks into pgvector, and runs a hybrid-Socratic RAG tutor that tracks
 a 0-100 comprehension score.
 
+## ⚠️ Mandatory definition of done (read first)
+
+This feature is **NOT complete** — and you must **NOT** output `<promise>DONE</promise>` —
+until BOTH of the following are true and verified end-to-end:
+
+1. **All Space Invaders content is removed.** No game route, view, template,
+   island, TS engine, types, tests, or `e2e/game.spec.ts` remain. `grep -ri
+   "invader\|space.invaders\|AlienGrid\|SpaceInvaders" src frontend e2e tests`
+   must return nothing. The spec for the game has already been deleted.
+2. **The full tutor UI is built and works.** The user-facing app must actually
+   render the Research Paper Comprehension Tutor: upload island, analysis
+   island, and chat island, wired to live routes/templates, with the `/` route
+   serving the tutor (not the game). Backend-only is insufficient — a user
+   visiting the app must see and use the tutor, never Space Invaders.
+
+A green backend test suite is NOT done. The UI is a first-class deliverable.
+The single source of truth is `specs/paper-comprehension-tutor.md`.
+
 ## Status
 
 > **Backend foundation + service layer: COMPLETE & green.**
-> Space Invaders is still present (frontend + `/` route) and will be removed in
-> the integration step once the paper views/islands exist (avoids a broken
-> half-state — see the "single source of truth" rule).
+> **Space Invaders is still being served (frontend + `/` route) — this is the
+> most important thing left to fix.** Prioritize the integration step:
+> build the tutor UI (views/templates/islands), point `/` at the tutor, and
+> delete every Space Invaders artifact in the same increment. Do not defer the
+> game removal further.
 
 Validation green as of this increment:
 - `PYTHONPATH=src pytest tests/` -> 34 passed (services + models + session + retained game view tests).
