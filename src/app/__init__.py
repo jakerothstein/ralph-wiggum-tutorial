@@ -31,9 +31,22 @@ def create_app(config_name: str | None = None) -> Flask:
     # Initialize extensions
     db.init_app(app)
 
+    # Ensure all models are imported so they register on db.metadata before
+    # migrations / create_all run.
+    from . import models  # noqa: F401
+
     # Initialize Flask-Migrate
     from flask_migrate import Migrate
     Migrate(app, db)
+
+    # Build the AI client (real GitHub Models client, or the deterministic fake
+    # when USE_FAKE_AI is set / no token is configured) and store it for services.
+    from .services.ai_client import build_ai_client
+    app.extensions['ai_client'] = build_ai_client(app.config)
+
+    # Establish the anonymous session-id cookie lifecycle.
+    from .services.session import init_session
+    init_session(app)
 
     # Register error handlers
     from .errors import register_error_handlers

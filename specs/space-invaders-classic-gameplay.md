@@ -1,5 +1,13 @@
 # Feature: Space Invaders Classic Gameplay
 
+> **⚠️ SUPERSEDED — DO NOT IMPLEMENT.** This spec is retired and retained for
+> historical reference only. It is fully replaced by
+> `specs/paper-comprehension-tutor.md`, which removes Space Invaders entirely
+> and makes the Research Paper Comprehension Tutor the application's homepage.
+> Agents and the build loop must treat the paper-comprehension-tutor spec as the
+> single source of truth and must NOT build, preserve, or restore any Space
+> Invaders functionality described below.
+
 ## Feature Description
 A classic Space Invaders arcade game rendered on an HTML5 Canvas using vanilla TypeScript, served as the homepage of the application. The game replaces the existing Hello World demo entirely. Players control a ship at the bottom of the screen, shooting at rows of descending alien invaders. The game features smooth animations, keyboard controls, collision detection, and a local score display. No server-side persistence is needed — this is a pure client-side game delivered via the existing React Islands architecture as a canvas-based island.
 

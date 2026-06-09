@@ -40,8 +40,10 @@ IMPORTANT ALWAYS RUN these after implementing to get immediate feedback:
 
 - **Backend**: Flask on :5000, `PYTHONPATH=src` required when running pytest directly
 - **Frontend**: Vite dev server on :5173, React Islands pattern with `data-island` attributes in templates
-- **Database**: PostgreSQL, connection via `DATABASE_URL` env var (set by `script/setup`)
+- **Database**: PostgreSQL, connection via `DATABASE_URL` env var (set by `script/setup`). Requires the `vector` (pgvector) extension; the migration runs `CREATE EXTENSION IF NOT EXISTS vector`.
 - **Dev environment**: `.env` created by `script/setup`, contains all runtime config
+- **AI backend (GitHub Models, OpenAI-compatible)**: configured via `GITHUB_TOKEN` (PAT with `models: read`), `GITHUB_MODELS_ENDPOINT`, `GITHUB_MODELS_CHAT_MODEL`, `GITHUB_MODELS_EMBEDDING_MODEL`, `EMBEDDING_DIMS`. Single client lives in `src/app/services/ai_client.py` (stored on `app.extensions['ai_client']`).
+- **Hermetic AI for tests/E2E**: set `USE_FAKE_AI=1` to use the deterministic in-process fake client (no token/network). Tests force this automatically.
 
 ### Codebase Patterns
 
