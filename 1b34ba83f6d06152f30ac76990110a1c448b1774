@@ -1,0 +1,44 @@
+WHY / design decisions for this increment (Paper Comprehension Tutor backend):
+
+Scope choice: the spec replaces Space Invaders wholesale, but doing the removal
++ frontend in the same commit would leave a broken half-state if interrupted.
+The Ralph loop favors small green increments, so this commit lands ONLY the
+backend foundation + service layer (additive), leaving the game's `/` route and
+frontend intact and all suites green. Game removal happens in the integration
+increment once paper views/islands exist.
+
+Key technical decisions:
+- EmbeddingVector(TypeDecorator): single model definition that resolves to
+  pgvector Vector on PostgreSQL and JSON-text on SQLite. This honors the spec's
+  "keep pgvector isolated; don't let SQLite-incompatible columns break the
+  SQLite test suite" caveat WITHOUT a second model definition (single source of
+  truth, no adapters).
+- Models subclass Base (not db.Model): mypy strict's disallow_subclassing_any
+  rejects subclassing db.Model (typed Any). The pre-existing hello model used
+  the same Base pattern. db = SQLAlchemy(model_class=Base) so Base IS db.Model
+  for metadata registration.
+- FakeAiClient as the single hermetic seam: tests assert OUR behaviour (prompt
+  assembly, JSON parsing, score clamping, citation sanitization, persistence)
+  rather than mocking the OpenAI SDK everywhere. Same fake powers USE_FAKE_AI=1
+  for the future E2E run (no token/network). Deterministic hash-based embeddings
+  mean identical text -> cosine similarity 1.0, which the retrieval test relies on.
+- GitHubModelsClient._client typed as Any: the OpenAI SDK's overloaded create()
+  produced a call-overload error in envs WITH the SDK and an unused-ignore error
+  in the pre-commit mypy env WITHOUT it. Typing the client Any makes the call
+  untyped in both, eliminating the environment-dependent typing split.
+- embeddings.search dialect branch: pgvector cosine (<=>) on PostgreSQL, NumPy
+  in-Python ranking elsewhere, identical (chunk, score) return shape. The
+  PostgreSQL branch wraps in try/except -> Python fallback so a pgvector hiccup
+  degrades gracefully instead of 500ing.
+- tutor citation sanitization: model-returned cited_chunk_ids are filtered to the
+  set actually retrieved this turn; empty/invalid -> fall back to retrieved ids,
+  guaranteeing every grounded reply carries real provenance. Score clamped 0-100
+  in the Pydantic validator so an out-of-range model value can never persist.
+- session middleware resets the per-request "set cookie" flag in before_request
+  because Flask `g` is app-context scoped; the test client shares one app context
+  across requests, which previously leaked the flag and re-set the cookie.
+
+Not yet done (next increments): controllers, paper/chat views + blueprint swap,
+templates, frontend islands (upload/analysis/chat) + react-markdown, game
+removal, E2E spec, and applying the migration against a real PostgreSQL (no local
+psql/Postgres in this environment).
