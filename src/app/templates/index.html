@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}Research Paper Comprehension Tutor{% endblock %}
+
+{% block content %}
+<main class="container mx-auto px-4 py-10 max-w-3xl">
+    <header class="mb-8 text-center">
+        <h1 class="text-3xl font-bold text-gray-900">Research Paper Comprehension Tutor</h1>
+        <p class="mt-3 text-gray-600">
+            Upload a research paper (PDF). We analyze it, then guide you through a
+            Socratic conversation that tests and deepens your understanding while
+            tracking a live comprehension score.
+        </p>
+    </header>
+
+    {# React Island Mount Point — the upload island handles drag/drop, #}
+    {# client-side validation, the POST to /api/papers, progress states, #}
+    {# and the redirect to /papers/<id> once analysis is ready. #}
+    <div data-island="upload">
+        <noscript>
+            <p class="text-gray-600">JavaScript is required to upload a paper.</p>
+        </noscript>
+    </div>
+</main>
+{% endblock %}

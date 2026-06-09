@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}{{ paper_title }} — Tutor{% endblock %}
+
+{% block content %}
+<main class="container mx-auto px-4 py-6 max-w-7xl">
+    <div class="mb-4 flex items-center justify-between">
+        <h1 class="text-2xl font-bold text-gray-900 truncate">{{ paper_title }}</h1>
+        <a href="/" class="text-sm text-blue-600 hover:underline">&larr; Upload another</a>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {# Analysis island: read-only structured overview of the paper. #}
+        <section class="bg-white rounded-lg shadow p-5 overflow-y-auto max-h-[80vh]">
+            <div data-island="analysis" data-props='{"paperId": {{ paper_id }}}'>
+                <noscript>
+                    <p class="text-gray-600">JavaScript is required to view the analysis.</p>
+                </noscript>
+            </div>
+        </section>
+
+        {# Chat island: the hybrid-Socratic tutor conversation. #}
+        <section class="bg-white rounded-lg shadow p-5 flex flex-col max-h-[80vh]">
+            <div data-island="chat" data-props='{"paperId": {{ paper_id }}}' class="flex-1 flex flex-col min-h-0">
+                <noscript>
+                    <p class="text-gray-600">JavaScript is required to chat with the tutor.</p>
+                </noscript>
+            </div>
+        </section>
+    </div>
+</main>
+{% endblock %}

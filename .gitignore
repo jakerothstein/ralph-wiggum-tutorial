@@ -21,6 +21,10 @@ wheels/
 *.egg
 MANIFEST
 
+# Frontend source (the Python `lib/` rule above must not swallow this app code)
+!frontend/src/lib/
+!frontend/src/lib/**
+
 # Virtual environments
 .venv/
 venv/

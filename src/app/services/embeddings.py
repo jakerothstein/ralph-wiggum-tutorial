@@ -89,11 +89,19 @@ def _search_pgvector(
     query_embedding: Sequence[float],
     top_k: int,
 ) -> list[tuple[PaperChunk, float]]:
+    # Cast both operands to pgvector's ``Vector`` so the ``<=>`` cosine-distance
+    # operator binds correctly, and pin the result type to ``Float`` so the
+    # scalar distance is NOT decoded through the EmbeddingVector type decorator
+    # (which wraps the column and would mis-handle a bare float). Cosine
+    # distance = 1 - cosine similarity, so we convert back for the caller.
     from pgvector.sqlalchemy import Vector
-    from sqlalchemy import cast
+    from sqlalchemy import Float, cast
 
     dims = len(query_embedding)
-    distance = PaperChunk.embedding.op('<=>')(cast(list(query_embedding), Vector(dims)))
+    vec_type = Vector(dims)
+    column = cast(PaperChunk.embedding, vec_type)
+    query_vec = cast(list(query_embedding), vec_type)
+    distance = column.op('<=>', return_type=Float)(query_vec)
     stmt = (
         select(PaperChunk, distance.label('distance'))
         .where(PaperChunk.paper_id == paper_id)
@@ -101,7 +109,6 @@ def _search_pgvector(
         .limit(top_k)
     )
     rows = session.execute(stmt).all()
-    # Cosine distance = 1 - cosine similarity.
     return [(row[0], 1.0 - float(row[1])) for row in rows]
 
 
