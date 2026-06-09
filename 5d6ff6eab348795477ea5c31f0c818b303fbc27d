@@ -1,0 +1,36 @@
+Integration increment: tutor UI + Space Invaders removal.
+
+Key decisions / why:
+- Single-transaction ingest in controllers/paper.py: a persisted Paper always
+  has both chunks and an analysis. analyze() runs BEFORE commit so a failed
+  analysis aborts the whole upload (no half-ingested papers). Single source of
+  truth, no repair/migration paths.
+- One conversation per (paper, session); append_turn persists BOTH user and
+  assistant messages in one commit so stored history can never be half-written.
+- Session scoping is the only access boundary (anonymous app): every read is
+  WHERE session_id = current; cross-session access returns 404 (indistinguishable
+  from "not found") to avoid leaking existence.
+
+pgvector bug (important): services/embeddings._search_pgvector used
+PaperChunk.embedding.op('<=>')(cast(list, Vector(dims))). The resulting distance
+expression inherited the EmbeddingVector TypeDecorator as its result type, so the
+scalar float distance was passed through process_result_value (list(value)),
+raising "'float' object is not subscriptable" and silently falling back to the
+in-Python NumPy ranking. The native DB path was effectively dead. Fix: cast BOTH
+operands to pgvector Vector(dims) and pin op('<=>', return_type=Float) so the
+distance decodes as a float. Verified against docker pgvector/pgvector:pg16 with
+the migration applied: the DB path returns grounded citations with no fallback
+warning. pgvector's .cosine_distance() comparator is NOT available on the
+TypeDecorator-wrapped column, which is why explicit casts are used.
+
+frontend/src/lib/ was being swallowed by the Python `lib/` rule in .gitignore;
+added an explicit negation so the spec-mandated lib/api.ts is tracked.
+
+jest-dom matchers: tsc (strict, includes src/**) needs the type augmentation, so
+src/vitest-env.d.ts references @testing-library/jest-dom and tests/setup.ts
+imports the /vitest entry (jest-dom v6).
+
+Env limitation: chromium download is network-blocked here and /Applications is
+inaccessible, so the browser Playwright run could not execute. The full
+upload->analysis->chat flow was instead validated against real Postgres+pgvector
+via the Flask test client (native vector-search citations + score).
