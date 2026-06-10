@@ -122,10 +122,7 @@ export function ChatIsland({ paperId }: Props) {
         className="flex-1 space-y-3 overflow-y-auto rounded-md bg-gray-50 p-3"
       >
         {messages.length === 0 && !error && (
-          <p className="text-sm text-gray-500">
-            Say what you understand so far, and the tutor will start probing your
-            comprehension of the paper.
-          </p>
+          <p className="text-sm text-gray-500">Starting the conversation…</p>
         )}
         {messages.map((m) => (
           <div

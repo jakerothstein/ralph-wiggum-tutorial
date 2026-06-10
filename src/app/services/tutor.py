@@ -37,6 +37,15 @@ class TutorError(Exception):
     """Raised when a tutor turn cannot be produced or parsed."""
 
 
+# Static fallback used when the model can't produce an opening question, so a
+# new conversation always begins with the tutor inviting the user in.
+DEFAULT_OPENING = (
+    "Welcome! I'm your tutor for this paper. To get us started: in your own "
+    'words, what do you think the core problem this paper sets out to solve is, '
+    'and what made you want to dig into it?'
+)
+
+
 class _ChunkLike(Protocol):
     id: int
     section: str
@@ -55,6 +64,19 @@ _SYSTEM_PROMPT = (
     '{"reply": string, "comprehension_score": integer 0-100, '
     '"score_rationale": string, "cited_chunk_ids": array of integers}. The score '
     'is your current estimate of how well the user understands the paper.'
+)
+
+
+_OPENING_SYSTEM_PROMPT = (
+    'You are a Socratic tutor helping a user deeply understand a specific '
+    'research paper. The conversation is just beginning and the user has not '
+    'said anything yet. Open warmly and ask a single, inviting guiding question '
+    'that gets the user engaging with the paper (for example, what they think '
+    'its core problem is or what drew them to it). Keep it to one or two '
+    'sentences, ground it in the provided excerpts, and do NOT lecture or give '
+    'answers. Respond with a single JSON object: '
+    '{"reply": string, "comprehension_score": integer 0-100, '
+    '"score_rationale": string, "cited_chunk_ids": array of integers}.'
 )
 
 
@@ -122,4 +144,42 @@ def generate_turn(
 
     retrieved_ids = [c.id for c in chunks]
     turn.cited_chunk_ids = _sanitize_citations(turn, retrieved_ids)
+    return turn
+
+
+def generate_opening(
+    ai_client: AiClient,
+    chunks: Sequence[_ChunkLike],
+) -> TutorTurn:
+    """Produce the tutor's opening guiding question, grounded in the chunks.
+
+    The user has not spoken yet, so there is no history and no comprehension
+    score to report — the caller should treat only ``reply`` (and optionally the
+    citations) as meaningful.
+
+    Raises:
+        TutorError: If the model turn cannot be produced/parsed.
+    """
+    context = build_context_block(chunks)
+    messages: list[dict[str, str]] = [
+        {'role': 'system', 'content': _OPENING_SYSTEM_PROMPT},
+        {
+            'role': 'system',
+            'content': f'Relevant excerpts from the paper:\n{context}',
+        },
+        {
+            'role': 'user',
+            'content': 'Please greet me and ask your opening guiding question.',
+        },
+    ]
+    try:
+        raw = ai_client.chat_json(messages, schema_hint='tutor_turn')
+    except AiClientError as exc:
+        raise TutorError(f'tutor opening request failed: {exc}') from exc
+    try:
+        turn = TutorTurn.model_validate(raw)
+    except ValidationError as exc:
+        raise TutorError(f'model returned an invalid tutor turn: {exc}') from exc
+
+    turn.cited_chunk_ids = _sanitize_citations(turn, [c.id for c in chunks])
     return turn

@@ -61,6 +61,7 @@ def ingest(file_bytes: bytes, filename: str, session_id: str) -> Paper:
         title=extracted.title,
         filename=filename,
         num_pages=extracted.num_pages,
+        pdf_data=file_bytes,
     )
     db.session.add(paper)
     db.session.flush()  # assign paper.id for the chunk FKs

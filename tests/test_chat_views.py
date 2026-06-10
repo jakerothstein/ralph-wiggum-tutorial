@@ -43,13 +43,46 @@ def _start_conversation(client: FlaskClient[Any], paper_id: int) -> dict[str, An
 
 
 class TestConversation:
-    def test_start_is_idempotent(self, client: FlaskClient[Any]) -> None:
+    def test_start_seeds_opening_and_is_idempotent(
+        self, client: FlaskClient[Any]
+    ) -> None:
         paper_id = _upload(client)
         first = _start_conversation(client, paper_id)
         second = _start_conversation(client, paper_id)
         assert first['id'] == second['id']
         assert first['paper_id'] == paper_id
-        assert first['messages'] == []
+        # The tutor speaks first: a new conversation is seeded with one opening
+        # assistant message (a guiding question), and starting again is a no-op.
+        assert [m['role'] for m in first['messages']] == ['assistant']
+        assert first['messages'][0]['content']
+        assert first['messages'] == second['messages']
+
+    def test_start_falls_back_when_ai_fails(self, app: Any) -> None:
+        # If the AI client errors while seeding the opening, the conversation is
+        # still created with the static guiding question instead of 500-ing.
+        from app.services.ai_client import AiClientError
+        from app.services.tutor import DEFAULT_OPENING
+
+        client = app.test_client()
+        paper_id = _upload(client)
+
+        original = app.extensions['ai_client']
+
+        class _BrokenClient:
+            def chat_json(self, messages: Any, schema_hint: Any = None) -> Any:
+                raise AiClientError('boom')
+
+            def embed(self, texts: Any) -> Any:
+                raise AiClientError('boom')
+
+        app.extensions['ai_client'] = _BrokenClient()
+        try:
+            conv = _start_conversation(client, paper_id)
+        finally:
+            app.extensions['ai_client'] = original
+
+        assert [m['role'] for m in conv['messages']] == ['assistant']
+        assert conv['messages'][0]['content'] == DEFAULT_OPENING
 
     def test_send_message_persists_turn_with_score(
         self, client: FlaskClient[Any]
@@ -85,8 +118,14 @@ class TestConversation:
         resp = client.get(f'/api/conversations/{conv["id"]}/messages')
         assert resp.status_code == 200
         messages = json.loads(resp.data)['messages']
-        # 2 turns => 2 user + 2 assistant messages, ordered.
-        assert [m['role'] for m in messages] == ['user', 'assistant', 'user', 'assistant']
+        # Opening assistant question, then 2 turns => 2 user + 2 assistant.
+        assert [m['role'] for m in messages] == [
+            'assistant',
+            'user',
+            'assistant',
+            'user',
+            'assistant',
+        ]
 
     def test_empty_message_is_400(self, client: FlaskClient[Any]) -> None:
         paper_id = _upload(client)

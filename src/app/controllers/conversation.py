@@ -24,7 +24,7 @@ from sqlalchemy import select
 
 from ..models import Conversation, Message, db
 from ..services import embeddings, tutor
-from ..services.ai_client import AiClient
+from ..services.ai_client import AiClient, AiClientError
 from . import paper as paper_controller
 
 
@@ -38,9 +38,14 @@ def _ai_client() -> AiClient:
 
 
 def get_or_create_conversation(paper_id: int, session_id: str) -> Conversation:
-    """Return the session's conversation for a paper, creating it if needed."""
+    """Return the session's conversation for a paper, creating it if needed.
+
+    A newly created conversation is seeded with an opening assistant message —
+    a guiding question — so the tutor speaks first and the user never has to
+    start the conversation from a blank slate.
+    """
     # Ensures the paper exists and is owned by this session (404 otherwise).
-    paper_controller.get(paper_id, session_id)
+    paper = paper_controller.get(paper_id, session_id)
 
     conversation = db.session.execute(
         select(Conversation).where(
@@ -51,8 +56,46 @@ def get_or_create_conversation(paper_id: int, session_id: str) -> Conversation:
     if conversation is None:
         conversation = Conversation(paper_id=paper_id, session_id=session_id)
         db.session.add(conversation)
+        db.session.flush()  # assign conversation.id for the opening message FK
+        _seed_opening(conversation, paper)
         db.session.commit()
     return conversation
+
+
+def _seed_opening(conversation: Conversation, paper: Any) -> None:
+    """Persist the tutor's opening guiding question for a new conversation.
+
+    The opening is grounded in the paper's most representative chunks (retrieved
+    using the analysis summary as the query). If the model can't produce one we
+    fall back to a static guiding question so the conversation always starts
+    with the tutor speaking.
+    """
+    ai_client = _ai_client()
+    top_k = int(current_app.config['RETRIEVAL_TOP_K'])
+    summary = paper.analysis.summary if paper.analysis else ''
+    query = summary or paper.title
+
+    # Creating a conversation now makes AI calls (embed + chat). Any failure on
+    # either degrades to a static guiding question rather than 500-ing the
+    # workspace, so the tutor always speaks first.
+    try:
+        retrieved = embeddings.retrieve(
+            ai_client, db.session(), paper.id, query, top_k
+        )
+        chunks: list[Any] = [chunk for chunk, _score in retrieved]
+        turn = tutor.generate_opening(ai_client, chunks)
+        reply, cited = turn.reply, turn.cited_chunk_ids
+    except (tutor.TutorError, AiClientError):
+        reply, cited = tutor.DEFAULT_OPENING, []
+
+    db.session.add(
+        Message(
+            conversation_id=conversation.id,
+            role='assistant',
+            content=reply,
+            cited_chunk_ids=cited,
+        )
+    )
 
 
 def get_conversation(conversation_id: int, session_id: str) -> Conversation:

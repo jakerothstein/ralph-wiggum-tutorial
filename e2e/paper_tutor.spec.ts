@@ -32,8 +32,20 @@ test.describe('Research Paper Comprehension Tutor', () => {
     // The upload island redirects to the paper workspace on success.
     await page.waitForURL(/\/papers\/\d+/, { timeout: 30_000 });
 
-    // Analysis island renders the structured analysis.
+    // The original PDF is previewed inline next to the chat.
+    await expect(page.locator('iframe[title^="PDF preview"]')).toBeVisible();
+
+    // The tutor speaks first: a guiding question is seeded into the chat.
+    const messageList = page.getByTestId('message-list');
+    await expect(messageList.locator('.prose').first()).toBeVisible({
+      timeout: 15_000,
+    });
+
+    // Analysis is hidden by default behind a toggle; revealing it renders the
+    // structured analysis island.
     const analysis = page.locator('[data-island="analysis"]');
+    await expect(analysis).not.toBeVisible();
+    await page.getByText('Show paper analysis').click();
     await expect(analysis).toBeVisible();
     await expect(analysis.getByText('Paper Analysis')).toBeVisible();
     await expect(analysis.getByText('Summary')).toBeVisible();
@@ -44,7 +56,6 @@ test.describe('Research Paper Comprehension Tutor', () => {
     await input.fill('I think the paper is about attention-based models.');
     await page.getByRole('button', { name: 'Send' }).click();
 
-    const messageList = page.getByTestId('message-list');
     await expect(
       messageList.getByText('I think the paper is about attention-based models.'),
     ).toBeVisible();

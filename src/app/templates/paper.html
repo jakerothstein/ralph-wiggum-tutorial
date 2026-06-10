@@ -10,13 +10,19 @@
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {# Analysis island: read-only structured overview of the paper. #}
-        <section class="bg-white rounded-lg shadow p-5 overflow-y-auto max-h-[80vh]">
-            <div data-island="analysis" data-props='{"paperId": {{ paper_id }}}'>
-                <noscript>
-                    <p class="text-gray-600">JavaScript is required to view the analysis.</p>
-                </noscript>
-            </div>
+        {# PDF preview: the original uploaded document, rendered inline. #}
+        <section class="bg-white rounded-lg shadow p-2 flex flex-col max-h-[80vh]">
+            <iframe
+                src="/papers/{{ paper_id }}/pdf"
+                title="PDF preview of {{ paper_title }}"
+                class="w-full flex-1 rounded-md border border-gray-200"
+                style="min-height: 75vh;"
+            >
+                <p class="p-4 text-gray-600">
+                    Your browser can't display the PDF inline.
+                    <a href="/papers/{{ paper_id }}/pdf" class="text-blue-600 hover:underline">Open it in a new tab.</a>
+                </p>
+            </iframe>
         </section>
 
         {# Chat island: the hybrid-Socratic tutor conversation. #}
@@ -28,5 +34,17 @@
             </div>
         </section>
     </div>
+
+    {# Analysis island: structured overview, hidden by default behind a toggle. #}
+    <details class="mt-6 bg-white rounded-lg shadow p-5">
+        <summary class="cursor-pointer text-sm font-semibold text-gray-700 select-none">
+            Show paper analysis
+        </summary>
+        <div class="mt-4" data-island="analysis" data-props='{"paperId": {{ paper_id }}}'>
+            <noscript>
+                <p class="text-gray-600">JavaScript is required to view the analysis.</p>
+            </noscript>
+        </div>
+    </details>
 </main>
 {% endblock %}

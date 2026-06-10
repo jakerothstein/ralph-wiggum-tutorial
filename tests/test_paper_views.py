@@ -75,6 +75,36 @@ class TestReadAndScope:
         assert resp.status_code == 200
         assert b'data-island="analysis"' in resp.data
         assert b'data-island="chat"' in resp.data
+        # PDF preview iframe replaces the side analysis panel.
+        assert f'/papers/{paper_id}/pdf'.encode() in resp.data
+
+    def test_pdf_preview_serves_owned_paper(self, client: FlaskClient[Any]) -> None:
+        paper_id = json.loads(_upload(client).data)['paper']['id']
+        resp = client.get(f'/papers/{paper_id}/pdf')
+        assert resp.status_code == 200
+        assert resp.mimetype == 'application/pdf'
+        assert resp.data.startswith(b'%PDF')
+
+    def test_pdf_preview_cross_session_is_404(self, app: Any) -> None:
+        owner = app.test_client()
+        other = app.test_client()
+        paper_id = json.loads(_upload(owner).data)['paper']['id']
+        assert other.get(f'/papers/{paper_id}/pdf').status_code == 404
+
+    def test_pdf_preview_404_when_no_bytes(self, app: Any) -> None:
+        # Legacy rows (uploaded before the pdf_data column existed) have no
+        # bytes to preview and must 404 rather than serve an empty body.
+        from app.models import Paper, db
+
+        client = app.test_client()
+        # Establish a session and capture its id from a real upload...
+        paper_id = json.loads(_upload(client).data)['paper']['id']
+        with app.app_context():
+            paper = db.session.get(Paper, paper_id)
+            assert paper is not None
+            paper.pdf_data = None
+            db.session.commit()
+        assert client.get(f'/papers/{paper_id}/pdf').status_code == 404
 
     def test_list_papers_scoped(self, client: FlaskClient[Any]) -> None:
         _upload(client)

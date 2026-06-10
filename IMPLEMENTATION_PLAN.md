@@ -30,6 +30,42 @@ Validation (this increment):
   embed→analyze→persist) → workspace → analysis JSON → conversation → tutor turn
   with **native pgvector cosine-search citations** + comprehension score.
 
+## Increment log (2026-06-09) — UX: PDF preview, tutor speaks first, analysis behind toggle
+
+Why: the workspace previously showed a structured-analysis panel next to the
+chat and left the user staring at an empty conversation. Readers want to see the
+*actual paper* while being tutored, and a blank chat creates a cold-start
+("what do I even say?"). This increment makes the tutor proactive and keeps the
+source document in view; the derived analysis becomes secondary (opt-in).
+
+- **Inline PDF preview.** Raw upload bytes are now persisted (`Paper.pdf_data`,
+  `LargeBinary`, `deferred=True` so list/read queries don't drag the blob).
+  Migration `b2c3d4e5f6a7_add_pdf_data_to_paper` (nullable → legacy rows stay
+  valid, they just 404 the preview). New route `GET /papers/<id>/pdf` streams
+  `application/pdf` with a `secure_filename`-sanitized inline Content-Disposition,
+  session-scoped (cross-session/no-bytes → 404). `paper.html` renders it in an
+  `<iframe>` where the analysis panel used to be.
+- **Tutor speaks first.** `get_or_create_conversation` now seeds one opening
+  assistant message on creation: `tutor.generate_opening` retrieves the paper's
+  most representative chunks (query = analysis summary, else title) and asks a
+  single grounded guiding question. Any AI failure (embed or chat) degrades to
+  `tutor.DEFAULT_OPENING` instead of 500-ing the workspace, so the tutor always
+  speaks first. Chat island empty-state copy updated to "Starting the
+  conversation…".
+- **Analysis behind a toggle.** `paper.html` moves the analysis island into a
+  collapsed `<details>` ("Show paper analysis"); E2E asserts it's hidden until
+  revealed.
+- Tests: `test_paper_views` (+pdf preview: owned 200/%PDF, cross-session 404,
+  no-bytes 404), `test_chat_views` (opening seeded + idempotent, AI-failure
+  fallback, history ordering starts with assistant). E2E `paper_tutor.spec.ts`
+  updated for iframe + seeded message + analysis toggle.
+
+Validation: backend **51 passed**, frontend **6 passed**, mypy/flake8/tsc/eslint
+clean. Full flow re-verified against real Postgres+pgvector (ralph-pg, migration
+applied) via Flask test client: upload→PDF preview (200, `%PDF`)→seeded opening
+→graded turn (score + native pgvector cosine citation). Browser Playwright still
+blocked here (no chromium/network); spec committed and correct.
+
 ## Increment log (2026-06-09) — integration + game removal
 
 ### Backend

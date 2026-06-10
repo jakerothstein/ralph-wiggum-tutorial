@@ -5,7 +5,8 @@ Routes:
 * ``GET  /``                — upload/home page (renders the upload island).
 * ``POST /api/papers``      — upload a PDF; runs ingest+analyze; returns
   ``{paper, analysis}`` so the client can redirect to the workspace.
-* ``GET  /papers/<id>``     — the paper workspace page (analysis + chat islands).
+* ``GET  /papers/<id>``     — the paper workspace page (PDF preview + chat islands).
+* ``GET  /papers/<id>/pdf`` — stream the original PDF for inline preview.
 * ``GET  /api/papers/<id>`` — the structured analysis JSON for an owned paper.
 * ``GET  /api/papers``      — list the session's papers.
 
@@ -14,7 +15,8 @@ custom decorators, per project convention). Cross-session access is a 404.
 """
 from __future__ import annotations
 
-from flask import Blueprint, jsonify, render_template, request
+from flask import Blueprint, Response, abort, jsonify, render_template, request
+from werkzeug.utils import secure_filename
 
 from ..controllers import paper as paper_controller
 from ..schemas.paper import (
@@ -45,6 +47,26 @@ def workspace(paper_id: int):  # type: ignore[no-untyped-def]
     except paper_controller.PaperNotFoundError:
         return render_template('errors/404.html'), 404
     return render_template('paper.html', paper_id=paper.id, paper_title=paper.title)
+
+
+@paper_bp.route('/papers/<int:paper_id>/pdf')
+def pdf_preview(paper_id: int):  # type: ignore[no-untyped-def]
+    """Stream a session-owned paper's original PDF for inline preview."""
+    session_id = current_session_id()
+    try:
+        paper = paper_controller.get(paper_id, session_id)
+    except paper_controller.PaperNotFoundError:
+        abort(404)
+    if not paper.pdf_data:
+        abort(404)
+    # secure_filename strips quotes/control chars, so the user-supplied name
+    # can't break out of (or inject into) the Content-Disposition header.
+    safe_name = secure_filename(paper.filename) or 'paper.pdf'
+    return Response(
+        paper.pdf_data,
+        mimetype='application/pdf',
+        headers={'Content-Disposition': f'inline; filename="{safe_name}"'},
+    )
 
 
 @paper_bp.route('/api/papers', methods=['POST'])
