@@ -1,0 +1,24 @@
+Increment: document-centric, proactive tutor workspace.
+
+WHY each change:
+- pdf_data on Paper (deferred LargeBinary): readers want the actual paper in
+  view while being tutored, not just a derived analysis. deferred=True keeps the
+  blob out of list/read queries (only loaded when the /pdf route touches it).
+  Migration is nullable so legacy rows pre-dating the column stay valid and
+  simply 404 the preview rather than serving an empty body.
+- GET /papers/<id>/pdf: session-scoped (PaperNotFoundError->404); secure_filename
+  on the user-supplied name prevents Content-Disposition header injection.
+- generate_opening + seeded opening message: a blank chat creates cold-start
+  friction. The tutor now opens with one grounded guiding question. Seeding makes
+  AI calls at conversation-create time, so failures are caught and degrade to
+  tutor.DEFAULT_OPENING (static) rather than 500-ing the workspace — invariant:
+  the tutor always speaks first. flush() before seeding assigns conversation.id
+  for the message FK; whole create+seed commits atomically.
+- analysis moved into <details> toggle: analysis is now secondary to the PDF +
+  conversation; opt-in keeps the workspace focused.
+
+VERIFICATION: backend 51 + frontend 6 green; mypy(strict incl tests)/flake8/tsc/
+eslint clean. Real Postgres+pgvector (ralph-pg, migration b2c3d4e5f6a7 applied):
+upload 201 -> /pdf 200 %PDF -> conversation seeded ['assistant'] -> turn 201 with
+comprehension score + native pgvector cosine citation. Browser Playwright not
+runnable here (no chromium/network); spec updated and committed.
